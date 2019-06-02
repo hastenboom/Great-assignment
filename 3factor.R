@@ -37,7 +37,7 @@ for(i in 1:nrow(Book1))
 }
 Book1$rf=Book1$rf/100
 #定义ri
-Book$ri=NA;
+Book1$ri=NA;
 for(i in 1:nrow(Book1))
 {
   if(i%%150==1)
