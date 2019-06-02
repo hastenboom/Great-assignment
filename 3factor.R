@@ -1,6 +1,5 @@
 library(readxl)
 Book1 <- read_excel("D:/Education/SAS/great assignment/originaldata/3factor/Book1.xlsx")
-
 riskfree <- read_csv("C:/Users/John Yang/Desktop/originaldata/riskfree.csv")
 library(readr)
 index <- read_csv("C:/Users/John Yang/Desktop/originaldata/index.csv")
@@ -50,5 +49,38 @@ for(i in 1:nrow(Book1))
 
 #美化
 factordat=Book1[,c(10,7,11,5,6,8,9)]
+factordat$size=factordat$size/1000000000;
 
+factordata=data.frame(codes=NA,date=NA,ri=NA,size=NA,PB=NA,rf=NA,rm=NA)
 
+for(i in 1:300)
+{
+  factordata[(1+(i-1)*149):(i*149),]=factordat[(2+(i-1)*150):(i*150),]
+}
+
+for(i in 1:nrow(factordata))
+{
+  if(is.na(factordata$rf[i]))
+  {
+    factordata$rf[i]=0
+  }
+  if(is.na(factordata$rm[i]))
+  {
+    factordata$rm[i]=0
+  }
+  if(is.na(factordata$ri))
+  {
+    factordata$ri=0
+  }
+}
+
+factordata$a=NA
+row.names(factordata)=1:44700
+
+for(i in 1:300)
+{
+  factordata$a[(1+(i-1)*149):(i*149)]=1:149
+}
+factordata$date=factordata$a
+
+write.csv(factordata,"Chap3-3-1 3factors.csv")
