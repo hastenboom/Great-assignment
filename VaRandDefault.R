@@ -58,6 +58,7 @@ data2$volume=(data2$volume-mean(data2$volume))/sd(data2$volume)#data2储存全�
 
 
 #----------------Part three:fitting models-------------------------
+#------------------------------------------------------------------
 data3=data2[,c(11,6,8,12)]#data3储存分类所需数据
 
 theta = sum(data3$default)/nrow(data3)
@@ -86,7 +87,8 @@ y_hatsvm = pre.svm>theta
 #----------nnet
 library(nnet)
 pkm.nnet = nnet(default~.,data=traind,size=5,decay=0.01) 
-y_hatnnet = (pkm.nnet$fitted.values > theta)
+pkm.nnet=predict(pkm.nnet,testd)
+y_hatnnet = as.logical((pkm.nnet > theta))
 
 #---------knn
 library(class)
@@ -103,12 +105,10 @@ cat(sprintf('Total Default in real %d,\n logit predicts %d,\n probit predicts %d
 
 
 #------------------Part four:evaluation model--------------------
-#At the very beginning,I follow the instruction taught by Mr.Wan,
-#that's using his original codes "cpnp".
-y = data3$default
-y_hat1 = (predi1>theta)
-
-
+# ---------------------------------------------------------------
+library(ggplot2)
+ # ------------sub part :definding function
+# --------4.1.1 NP
 cpnp = function(y,y_hat)
 {
   #
@@ -121,4 +121,86 @@ cpnp = function(y,y_hat)
   NP = (1-alpha)/beta
   return(data.frame(NP,alpha,beta))
 }
-cpnp(y,y_hat1)
+
+
+# ---------4.1.2 ROC
+ROC=function(thetas,y,predi)
+{
+  #thetas = thetas; y =y; predi=predi1
+  #
+  n = length(thetas)
+  TPR =NA;FPR =NA
+  for(i in 1:n)
+  {
+    #
+    #
+    y_hat=predi>thetas[i]
+    TP = sum(y_hat==1 & y==1)
+    FP = sum(y_hat==1 & y==0)
+    TN = sum(y_hat==0 & y==0)
+    FN = sum(y_hat==0 & y==1)
+    TPR[i]=TP/(TP+FN); FPR[i] = FP/(FP+TN)
+  }
+  a = data.frame(FPR,TPR)
+  x = seq(0,1,length = length(TPR))
+  y = seq(0,1,length = length(FPR))
+  return(data.frame(FPR,TPR,x,y))
+}
+# ------------4.1.3 CAP
+
+CAP= function(predi,orid)
+{
+  # predi=predi1;orid=data3
+  #
+  a1 = data.frame(predi,orid)
+  a1.sort=a1[order(a1$predi,decreasing=T),]
+  a1.sort$cost = seq(1,nrow(a1))/nrow(a1.sort)
+  a1.sort$cumde = cumsum(a1.sort$default)/sum(a1.sort$default)
+  a1.sort$x1 = seq(0,1,length = nrow(a1.sort))
+  a1.sort$y1 = seq(0,1,length = nrow(a1.sort))
+  ggplot(a1.sort,aes(x=cost,y=cumde))+
+    geom_line(size=2,aes(color=I('steelblue')))+
+    geom_line(size=2,alpha=0.5,aes(x=x1,y=y1,color=I('tomato')))+
+    labs(x = "Cumulative customers", y = "Cumulative default constomers", title = "CAP") 
+}
+
+
+# y_hat: y_hat1 y_hat2 y_hatsvm y_hatnnet pkm.knn
+# predi: predi1 predi2 pre.svm pkm.nnet
+
+#application
+# 4.2.1 NP
+y = data3$default
+
+np.log = cpnp(y,y_hat1);np.pro = cpnp(y,y_hat2);
+np.svm = cpnp(y,y_hatsvm);np.nnet = cpnp(y,y_hatnnet);
+np.knn = cpnp(y,pkm.knn);
+
+np.summary = rbind(np.log,np.pro,np.svm,np.nnet,np.knn)
+rownames(np.summary) = c('logistic','probit','svm','neural','knn')
+np.summary
+
+
+
+# 4.2.2 ROC
+roc.plt = function(predi)
+{
+  thetas =seq(min(predi),max(predi),length=100)
+  aa = ROC(thetas,y,predi)
+  ggplot(aa,aes(x=FPR,y=TPR))+
+    geom_line(size=2,alpha=1,aes(x=FPR,y=TPR,color=I('steelblue')))+
+    geom_line(size=2,alpha=0.5,aes(x=x,y=y,color=I('tomato')))+
+    labs(x = "FPR", y = "TPR", title = "ROC") 
+}
+
+roc.plt(predi1)
+roc.plt(predi2)
+roc.plt(pre.svm)
+roc.plt(as.logical(pkm.nnet$fitted.values))
+
+# 4.2.3 CAP
+CAP(pre.svm,orid=testd)
+CAP(pkm.nnet,orid=testd)
+CAP(predi1,orid=data3)
+CAP(predi2,orid=data3)
+
