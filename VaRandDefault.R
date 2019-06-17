@@ -2,6 +2,7 @@
 
 #the following function was designed to apply in the situation where 
 #stocks are over one, I decide to apply it here yet it's not necessary
+library(quantmod)
 selstock=function(stock,begin,end,ty)
 {
   num=length(stock);
@@ -29,10 +30,11 @@ data2=as.data.frame(data1[index(data1)>as.Date("2012-05-21")])
 # I decide not to choose one year here, 
 #since the sample tends to be too small to converge
 data2$date=rownames(data2)
-n=length(data2)
+
+
 calVaR=function(x,inte,alpha=0.05)
 {
-  index1=NA;hVaR=NA;
+  index1=NA;hVaR=NA;n=nrow(x)
   for(i in 1:n)
   {
     index1[i]=which(x$date[i]==index(data1))
@@ -46,6 +48,7 @@ calVaR=function(x,inte,alpha=0.05)
 #generating necessary data for the next part
 hVaR=calVaR(data2,inte=252,alpha=0.25)
 data2$hVaR=hVaR
+
 data2$default=NA;
 data2$default[data2$return<data2$hVaR]=1
 data2$default[data2$return>data2$hVaR]=0
@@ -58,6 +61,28 @@ data3=data2[,c(9,11,6,8,12)]
 reg1 = glm(default~volume+return+amplitude,data = data3,
            family = binomial(link = "logit"))
 predi1=predict(reg1)
+
+
+reg2 = glm(default~volume+re+amplitude,data = x2,
+           family = binomial(link = "probit"))
+predi2=predict(reg1)#probablity   
+y_hat2 =(predi2>theta)
+
+#----------svm
+x3 <- sample(x = 2,size = nrow(x2),replace=TRUE,prob = c(0.5,0.5))
+traind = x2[x3==1,]; testd = x2[x3==2,];
+
+library(e1071)
+reg.svm = svm(default~.,traind)
+pre.svm= predict(reg.svm,testd)
+y_hatsvm = pre.svm>theta
+
+#----------nnet
+library(nnet)
+pkm.nnet = nnet(default~.,data=traind,size=5,decay=0.01) 
+y_hatnnet = (pkm.nnet$fitted.values > theta)
+
+
 
 theta = sum(data3$default)/nrow(data3)#threshold,as a result,the adequacy of this 
 #model will be badly affected by this one. 
