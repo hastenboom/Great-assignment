@@ -54,23 +54,29 @@ data2$default[data2$return<data2$hVaR]=1
 data2$default[data2$return>data2$hVaR]=0
 data2$amplitude=data2$high-data2$low
 #standardizing volume since it's too great comparing to other variables
-data2$volume=(data2$volume-mean(data2$volume))/sd(data2$volume)
-#----------------Part three:logit fitting-------------------------
-data3=data2[,c(9,11,6,8,12)]
-#model fitting
-reg1 = glm(default~volume+return+amplitude,data = data3,
+data2$volume=(data2$volume-mean(data2$volume))/sd(data2$volume)#data2储存全部的源数据
+
+
+#----------------Part three:fitting models-------------------------
+data3=data2[,c(11,6,8,12)]#data3储存分类所需数据
+
+theta = sum(data3$default)/nrow(data3)
+
+# ----------------logit models
+reg1 = glm(default~.,data = data3,
            family = binomial(link = "logit"))
 predi1=predict(reg1)
+y_hat1 = (predi1>theta)
 
-
-reg2 = glm(default~volume+re+amplitude,data = x2,
+# ----------------probit models
+reg2 = glm(default~.,data = data3,
            family = binomial(link = "probit"))
-predi2=predict(reg1)#probablity   
+predi2=predict(reg2)#probablity   
 y_hat2 =(predi2>theta)
 
 #----------svm
-x3 <- sample(x = 2,size = nrow(x2),replace=TRUE,prob = c(0.5,0.5))
-traind = x2[x3==1,]; testd = x2[x3==2,];
+temp = sample(x = 2,size = nrow(data3),replace=TRUE,prob = c(0.7,0.5))
+traind = data3[temp==1,]; testd = data3[temp==2,];
 
 library(e1071)
 reg.svm = svm(default~.,traind)
@@ -82,10 +88,18 @@ library(nnet)
 pkm.nnet = nnet(default~.,data=traind,size=5,decay=0.01) 
 y_hatnnet = (pkm.nnet$fitted.values > theta)
 
+#---------knn
+library(class)
+
+pkm.knn = knn(train=traind,test=testd,cl=traind$default,k=1)
+
+# a brief summary
+
+cat(sprintf('Total Default in real %d,\n logit predicts %d,\n probit predicts %d,\n svm predicts %d, \n neural net predicts %d,\n knn predicts %d',
+        sum(data3$default),sum(y_hat1),sum(y_hat2),sum(y_hatsvm),sum(y_hatnnet),sum(pkm.knn == 1)
+        ))
 
 
-theta = sum(data3$default)/nrow(data3)#threshold,as a result,the adequacy of this 
-#model will be badly affected by this one. 
 
 
 #------------------Part four:evaluation model--------------------
